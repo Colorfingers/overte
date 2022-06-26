@@ -11,6 +11,7 @@
 //
 
 #include "LogHandler.h"
+#include "Breakpoint.h"
 
 #include <mutex>
 
@@ -28,8 +29,9 @@
 #include <QtCore/QMutexLocker>
 #include <QtCore/QThread>
 #include <QtCore/QTimer>
+#include <QRecursiveMutex>
 
-QMutex LogHandler::_mutex(QMutex::Recursive);
+QRecursiveMutex LogHandler::_mutex;
 
 LogHandler& LogHandler::getInstance() {
     static LogHandler staticInstance;
@@ -148,7 +150,7 @@ void LogHandler::flushRepeatedMessages() {
     for (int m = 0; m < (int)_repeatedMessageRecords.size(); ++m) {
         int repeatCount = _repeatedMessageRecords[m].repeatCount;
         if (repeatCount > 1) {
-            QString repeatLogMessage = QString().setNum(repeatCount) + " repeated log entries - Last entry: \"" 
+            QString repeatLogMessage = QString().setNum(repeatCount) + " repeated log entries - Last entry: \""
                     + _repeatedMessageRecords[m].repeatString + "\"";
             printMessage(LogSuppressed, QMessageLogContext(), repeatLogMessage);
             _repeatedMessageRecords[m].repeatCount = 0;
@@ -215,6 +217,13 @@ QString LogHandler::printMessage(LogMsgType type, const QMessageLogContext& cont
         _repeatCount++;
     }
 
+    if ( !_breakMessages.empty() ) {
+        for(const auto &str : _breakMessages) {
+            if (logMessage.contains(str)) {
+                BREAKPOINT
+            }
+        }
+    }
     _previousMessage = message;
 #ifdef Q_OS_WIN
     // On windows, this will output log lines into the Visual Studio "output" tab
@@ -258,6 +267,12 @@ void LogHandler::printRepeatedMessage(int messageID, LogMsgType type, const QMes
     } else {
         _repeatedMessageRecords[messageID].repeatString = message;
     }
- 
+
     ++_repeatedMessageRecords[messageID].repeatCount;
+}
+
+
+void LogHandler::breakOnMessage(const char *message) {
+    QMutexLocker lock(&_mutex);
+    LogHandler::getInstance()._breakMessages.append(QString::fromUtf8(message));
 }

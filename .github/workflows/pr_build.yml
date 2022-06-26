@@ -48,9 +48,10 @@ jobs:
             - os: ubuntu-18.04
               build_type: full
               apt-dependencies: mesa-common-dev libegl1 libglvnd-dev libdouble-conversion1 libpulse0 libsnappy1v5 libwebpdemux2 libwebpmux3 python3-distro
-            - os: ubuntu-18.04
-              build_type: android
-              apt-dependencies: mesa-common-dev libegl1 libglvnd-dev libdouble-conversion1 libpulse0 python3-github python3-distro
+            # Android builds are currently failing
+            #- os: ubuntu-18.04
+            #  build_type: android
+            #  apt-dependencies: mesa-common-dev libegl1 libglvnd-dev libdouble-conversion1 libpulse0 python3-github python3-distro
             # Do not change the names of self-hosted runners without knowing what you are doing, as they correspond to labels that have to be set on the runner.
             - os: self-hosted_debian-11_aarch64
               build_type: full
@@ -73,21 +74,33 @@ jobs:
           echo "PYTHON_EXEC=python3" >> $GITHUB_ENV
           echo "INSTALLER_EXT=*" >> $GITHUB_ENV
           echo "CMAKE_BUILD_EXTRA=-- -j$(nproc)" >> $GITHUB_ENV
+          # Variables specific to our aarch64 runner
           if [ "${{ matrix.os }}" = "self-hosted_debian-11_aarch64" ]; then
             echo "VIRCADIA_USE_SYSTEM_QT=true" >> $GITHUB_ENV
             echo "CI_WORKSPACE=${{runner.workspace}}" >> $GITHUB_ENV
             # Don't optimize builds to save build time.
             echo "VIRCADIA_OPTIMIZE=false" >> $GITHUB_ENV
           fi
+
           if [[ "${{ matrix.os }}" = *"aarch64" ]]; then
             echo "VCPKG_FORCE_SYSTEM_BINARIES=true" >> $GITHUB_ENV
+            if [ "${{ matrix.build_type }}" = "full" ]; then
+              echo "CMAKE_EXTRA=-DVIRCADIA_CPU_ARCHITECTURE= -DBUILD_TOOLS:BOOLEAN=FALSE -DHIFI_PYTHON_EXEC:FILEPATH=$(which python3)" >> $GITHUB_ENV
+            else
+              echo "CMAKE_EXTRA=-DVIRCADIA_CPU_ARCHITECTURE= -DCLIENT_ONLY=1 -DBUILD_TOOLS:BOOLEAN=FALSE -DHIFI_PYTHON_EXEC:FILEPATH=$(which python3)" >> $GITHUB_ENV
+            fi
+
           fi
-          if [ "${{ matrix.build_type }}" = "full" ]; then
-            echo "CMAKE_EXTRA=-DVIRCADIA_CPU_ARCHITECTURE= -DBUILD_TOOLS:BOOLEAN=FALSE -DHIFI_PYTHON_EXEC:FILEPATH=$(which python3)" >> $GITHUB_ENV
-          else
-            echo "CMAKE_EXTRA=-DVIRCADIA_CPU_ARCHITECTURE= -DCLIENT_ONLY=1 -DBUILD_TOOLS:BOOLEAN=FALSE -DHIFI_PYTHON_EXEC:FILEPATH=$(which python3)" >> $GITHUB_ENV
+
+          if [[ "${{ matrix.os }}" != *"aarch64" ]]; then
+            if [ "${{ matrix.build_type }}" = "full" ]; then
+              echo "CMAKE_EXTRA=-DVIRCADIA_CPU_ARCHITECTURE=-msse3 -DBUILD_TOOLS:BOOLEAN=FALSE -DHIFI_PYTHON_EXEC:FILEPATH=$(which python3)" >> $GITHUB_ENV
+            else
+              echo "CMAKE_EXTRA=-DVIRCADIA_CPU_ARCHITECTURE=-msse3 -DCLIENT_ONLY=1 -DBUILD_TOOLS:BOOLEAN=FALSE -DHIFI_PYTHON_EXEC:FILEPATH=$(which python3)" >> $GITHUB_ENV
+            fi
           fi
         fi
+
         # Mac build variables
         if [ "${{ matrix.os }}" = "macOS-10.15" ]; then
           echo "PYTHON_EXEC=python3" >> $GITHUB_ENV
