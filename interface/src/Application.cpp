@@ -2480,7 +2480,7 @@ void Application::initialize(const QCommandLineParser &parser) {
 
     // Setup the mouse ray pick and related operators
     {
-        auto mouseRayPick = std::make_shared<RayPick>(Vectors::ZERO, Vectors::UP, PickFilter(PickScriptingInterface::getPickEntities() | PickScriptingInterface::getPickLocalEntities()), 0.0f, true);
+        auto mouseRayPick = std::make_shared<RayPick>(Vectors::ZERO, Vectors::UP, PickFilter(PickScriptingInterface::getPickEntities() | PickScriptingInterface::getPickLocalEntities()), 0.0f, 0.0f, true);
         mouseRayPick->parentTransform = std::make_shared<MouseTransformNode>();
         mouseRayPick->setJointState(PickQuery::JOINT_STATE_MOUSE);
         auto mouseRayPickID = DependencyManager::get<PickManager>()->addPick(PickQuery::Ray, mouseRayPick);
@@ -3293,9 +3293,9 @@ void Application::initializeUi() {
     {
         auto defaultUrlValidator = OffscreenQmlSurface::getUrlValidator();
         auto newValidator = [=](const QUrl& url) -> bool {
-            QString whitelistPrefix = "[WHITELIST ENTITY SCRIPTS]";
+            QString allowlistPrefix = "[ALLOWLIST ENTITY SCRIPTS]";
             QList<QString> safeURLS = { "" };
-            safeURLS += qEnvironmentVariable("EXTRA_WHITELIST").trimmed().split(QRegExp("\\s*,\\s*"), Qt::SkipEmptyParts);
+            safeURLS += qEnvironmentVariable("EXTRA_ALLOWLIST").trimmed().split(QRegExp("\\s*,\\s*"), Qt::SkipEmptyParts);
 
             // PULL SAFEURLS FROM INTERFACE.JSON Settings
 
@@ -3332,7 +3332,7 @@ void Application::initializeUi() {
     QmlContextCallback platformInfoCallback = [](QQmlContext* context) {
         context->setContextProperty("PlatformInfo", new PlatformInfoScriptingInterface());
     };
-    OffscreenQmlSurface::addWhitelistContextHandler({
+    OffscreenQmlSurface::addAllowlistContextHandler({
         QUrl{ "hifi/tablet/TabletAddressDialog.qml" },
         QUrl{ "hifi/Card.qml" },
         QUrl{ "hifi/Pal.qml" },
@@ -3342,7 +3342,7 @@ void Application::initializeUi() {
     QmlContextCallback ttsCallback = [](QQmlContext* context) {
         context->setContextProperty("TextToSpeech", DependencyManager::get<TTSScriptingInterface>().data());
     };
-    OffscreenQmlSurface::addWhitelistContextHandler({
+    OffscreenQmlSurface::addAllowlistContextHandler({
         QUrl{ "hifi/tts/TTS.qml" }
     }, ttsCallback);
     qmlRegisterType<ResourceImageItem>("Hifi", 1, 0, "ResourceImageItem");
@@ -7251,10 +7251,6 @@ void Application::updateWindowTitle() const {
         + (BuildInfo::BUILD_TYPE == BuildInfo::BuildType::Stable ? QString("Version") : QString("Build"))
         + " " + applicationVersion();
 
-    if (BuildInfo::RELEASE_NAME != "") {
-        buildVersion += " - " + BuildInfo::RELEASE_NAME;
-    }
-
     QString connectionStatus = isInErrorState ? " (ERROR CONNECTING)" :
         nodeList->getDomainHandler().isConnected() ? "" : " (NOT CONNECTED)";
 
@@ -8596,6 +8592,14 @@ void Application::loadScriptURLDialog() const {
 
 SharedSoundPointer Application::getSampleSound() const {
     return _sampleSound;
+}
+
+void Application::showVRKeyboardForHudUI(bool show) {
+    if (show) {
+        DependencyManager::get<Keyboard>()->setRaised(true, true);
+    } else {
+        DependencyManager::get<Keyboard>()->setRaised(false);
+    }
 }
 
 void Application::loadLODToolsDialog() {
